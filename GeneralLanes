@@ -1,0 +1,102 @@
+# Default variables. You can redefine them in you Fastlane file
+FABRIC_API_TOKEN = ""
+FABRIC_BUILD_SECRET = ""
+FABRIC_DEFAULT_EMAIL = ""
+SLACK_CHANNEL = ""
+SLACK_URL = ""
+
+desc "Increment build number using grabde task and than get this number from version.properties file"
+private_lane :get_build_number_android do |options|
+  path = "../app/version.properties"
+  constant_name = "VERSION_CODE"
+
+  if !File.file?(path)
+      UI.error(" -> No file exist at path: (#{path})!")
+      next
+  end
+
+  begin
+      file = File.new(path, "r")
+      while (line = file.gets)
+          if line.include? constant_name
+             versionComponents = line.strip.split('=')
+             version_code = versionComponents[versionComponents.length - 1].tr("\"","").to_i
+             break
+          end
+      end
+      file.close
+  rescue => err
+      UI.error("An exception occured while readinf gradle file: #{err}")
+      err
+  end
+  UI.message(version_code)
+  version_code
+end
+
+private_lane :update_build_number_android do |options|
+  gradle(task: "incrementBuildNumber")
+  get_build_number_android
+end
+
+private_lane :update_build_number_ios do |options|
+  build_number = get_info_plist_value(path: "#{options[:plist_path]}", key: "CFBundleVersion").to_i + 1
+  set_info_plist_value(path: "#{options[:plist_path]}", key: "CFBundleVersion", value: "#{build_number}")
+  build_number
+end
+
+desc "Submit a new Beta Build to Crashlytics (Fabric)"
+private_lane :post_to_crashlitics do |options|
+  message = options[:message] ? options[:message] : last_git_commit[:message]
+  emails = options[:test_email] ? options[:test_email] : FABRIC_DEFAULT_EMAIL
+
+  crashlytics(
+    api_token: FABRIC_API_TOKEN,
+    build_secret: FABRIC_BUILD_SECRET,
+    emails: emails,
+    notes: message
+  )
+end
+
+desc "Submit message to Slack channel with Author, Build Number and Additional message if neccessary"
+private_lane :post_to_slack do |options|
+  icon_url = options[:platfrom] == "Android" ? "http://rozdoum.com/wp-content/uploads/2017/07/MetroUI_OS_Android.png" : ""
+
+  slack(
+    message: "New #{options[:platfrom]} build ##{options[:build_number]} available. #{options[:message]}",
+    channel: SLACK_CHANNEL,
+    default_payloads: [:last_git_commit_message],
+    icon_url: icon_url,
+    attachment_properties: {
+      author_name: last_git_commit[:author]
+    }
+  )
+end
+
+desc "Register new device"
+lane :register_new_device do |options|
+  device_name = prompt(text: "Enter the device name: ")
+  device_udid = prompt(text: "Enter the device UDID: ")
+  device_hash = {}
+  device_hash[device_name] = device_udid
+  register_devices(devices: device_hash)
+  renew_profiles
+end
+
+desc "Recreate the provisioning profiles so you can deploy to your device, release on fabric and push to app store."
+desc "It is required additional plugin remove_provisioning_profile. To install it use - fastlane add_plugin remove_provisioning_profile"
+lane :renew_profiles do |options|
+  types = []
+  if options[:type]
+    types = [options[:type]]
+  elsif options[:types]
+    types = options[:types]
+  else
+    types = ["development"]
+  end
+
+  app_identifier = CredentialsManager::AppfileConfig.try_fetch_value(:app_identifier)
+  types.each do |type|
+    remove_provisioning_profile(app_identifier: app_identifier, type: type)
+    match(app_identifier: app_identifier, type: type, force: true)
+  end
+end

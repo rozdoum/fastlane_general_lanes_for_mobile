@@ -1,0 +1,78 @@
+buildscript {
+    repositories {
+      ...
+    }
+
+    dependencies {
+        classpath 'io.fabric.tools:gradle:1.+'
+    }
+}
+apply plugin: 'com.android.application'
+...
+
+repositories {
+    ...
+}
+
+def versionPropsFile = file('version.properties')
+
+android {
+    compileSdkVersion 25
+    buildToolsVersion "25.0.2"
+
+    if (versionPropsFile.canRead()) {
+        def Properties versionProps = new Properties()
+        versionProps.load(new FileInputStream(versionPropsFile))
+        def code = versionProps['VERSION_CODE'].toInteger()
+        def name = versionProps['VERSION_NAME']
+
+        defaultConfig {
+            applicationId "com.projectname"
+            minSdkVersion 17
+            targetSdkVersion 25
+            versionCode code //1
+            versionName name //1.0
+            testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+        }
+    }
+    else {
+        throw new GradleException("Could not read version.properties!")
+    }
+
+    productFlavors {
+  ...
+    }
+
+    signingConfigs {
+...
+    }
+
+    buildTypes {
+  ...
+    }
+}
+
+dependencies {
+  ...
+}
+
+...
+
+task('incrementBuildNumber') << {
+    def code = 1
+
+    if (versionPropsFile.canRead()) {
+        def Properties versionProps = new Properties()
+
+        versionProps.load(new FileInputStream(versionPropsFile))
+
+        code = versionProps['VERSION_CODE'].toInteger() + 1
+
+        versionProps['VERSION_CODE']=code.toString()
+        versionProps.store(versionPropsFile.newWriter(), null)
+
+    }  else {
+        throw new GradleException("Could not read version.properties!")
+    }
+    return code
+}
