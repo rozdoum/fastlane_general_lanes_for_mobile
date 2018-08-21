@@ -271,9 +271,18 @@ renew_profiles (iOS only)
 ```
 Recreate the provisioning profiles so you can deploy to your device, release on fabric and push to app store.
 
-t is required additional plugin remove_provisioning_profile. To install it use - fastlane add_plugin remove_provisioning_profile
+It is required additional plugin remove_provisioning_profile. To install it use - fastlane add_plugin remove_provisioning_profile
 
 Usage: run it without parameters and it will remove the Development profiles. Or add type:app-store for single profile or types:[app-store, development] for multiple profiles.
+
+```ruby
+load_provisions_and_certificates (iOS only)
+```
+
+This will load stored provisions (development and appstore) and certificates. 
+
+Usage: just run the command for loading stored provisions.
+
 
 ## Matchfile (iOS only)
 

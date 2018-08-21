@@ -100,3 +100,9 @@ lane :renew_profiles do |options|
     match(app_identifier: app_identifier, type: type, force: true)
   end
 end
+
+desc “Load stored provisions and certificates”
+lane :load_provisions_and_certificates do
+   match(type: “development”, readonly: true) # more information: https://codesigning.guide
+   match(type: “appstore”, readonly: true) # more information: https://codesigning.guide
+end
